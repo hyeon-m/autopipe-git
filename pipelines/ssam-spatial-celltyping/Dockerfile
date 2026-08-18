@@ -35,9 +35,9 @@ COPY Snakefile .
 COPY config.yaml .
 COPY scripts/ scripts/
 
-# Step 5: The container runs as a non-root user, so snakemake cannot create its
-# source cache under the default HOME ("/"). Point HOME/XDG_CACHE_HOME at /tmp
-# and make the working dir writable so snakemake can create .snakemake/ there.
+# The container runs as a non-root user, so snakemake/matplotlib/numba cannot
+# create caches under the default HOME ("/"). Point them at /tmp and make the
+# working dir writable so snakemake can create .snakemake/ there.
 ENV HOME=/tmp \
     XDG_CACHE_HOME=/tmp/.cache \
     MPLCONFIGDIR=/tmp/.config/matplotlib \

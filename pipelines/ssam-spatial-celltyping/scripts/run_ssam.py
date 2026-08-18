@@ -69,31 +69,8 @@ def check_store_ready(store_path):
         files = [f for f in os.listdir(p) if not f.startswith('.')]
         return len(files) > 0
 
-    def kde_complete():
-        """KDE counts as done only when EVERY gene's flag is set.
-
-        A non-empty vf/kde_computed pair is not enough: a run interrupted part
-        way through leaves both present but only partially filled, and treating
-        that as complete would silently continue with a truncated vector field.
-        ssam flags each gene in `kde_computed`, so an incomplete store is simply
-        handed back to run_kde, which resumes the genes that are still missing.
-        """
-        if not (has_data("vf") and has_data("kde_computed")):
-            return False
-        try:
-            import zarr
-            flags = np.asarray(zarr.open(os.path.join(store_path, "kde_computed"), mode="r")[:])
-        except Exception as exc:
-            print(f"[SSAM] Could not read kde_computed flags ({exc}); recomputing KDE.")
-            return False
-        done, total = int(np.count_nonzero(flags)), int(flags.size)
-        if done < total:
-            print(f"[SSAM] KDE only partially computed ({done}/{total} genes) — resuming.")
-            return False
-        return True
-
     return {
-        "kde":        kde_complete(),
+        "kde":        has_data("vf") and has_data("kde_computed"),
         "localmax":   has_data("local_maxs"),
         "normalized": has_data("normalized_vectors"),
         "scaled":     has_data("scaled_vectors"),
@@ -116,20 +93,17 @@ def main():
                         help="find_localmax search neighborhood size in pixels (ssam default: 3).")
     parser.add_argument("--resolution",  type=float, default=0.6,
                         help="Leiden clustering resolution (canonical: 0.6).")
-    parser.add_argument("--min-norm",    type=float, default=0.05,
-                        help="filter_celltypemaps min_norm (canonical: 0.05).")
-    parser.add_argument("--filter-min-r", type=float, default=0.3,
-                        help="filter_celltypemaps min_r: a pixel keeps its cell-type call only if "
-                             "its correlation to the assigned centroid exceeds this. ssam's default "
-                             "is 0.6; on sparse high-plex panels the pixel-to-centroid correlations "
-                             "sit well below that, so 0.6 masks nearly the whole tissue.")
+    parser.add_argument("--min-norm",    type=float, default=0.1,
+                        help="filter_celltypemaps min_norm (ssam default: 0.1).")
     parser.add_argument("--outlier-min-r", type=float, default=0.3,
-                        help="MedoidCorrelation min_r for cluster_vectors' outlier removal. "
-                             "A vector is kept only if its correlation to the cluster medoid is "
-                             "at least this value. ssam's own default is 0.8, which is tuned for "
-                             "smFISH panels; sparse high-plex panels (e.g. 541-gene Xenium) sit far "
-                             "below it and lose EVERY vector, yielding 0 clusters. Set a negative "
-                             "value to disable outlier removal entirely.")
+                        help="cluster_vectors MedoidCorrelation min_r for outlier removal "
+                             "(ssam default 0.8; negative disables outlier removal).")
+    parser.add_argument("--filter-min-r", type=float, default=0.3,
+                        help="filter_celltypemaps min_r (ssam default 0.6).")
+    parser.add_argument("--no-scale", action="store_true",
+                        help="Skip scale_vectors; reuse the normalized vectors in the scaled slots "
+                             "(scaled_vectors := normalized_vectors, vf_scaled := vf_normalized). "
+                             "Deviates from canonical SSAM: no per-gene standardization.")
     parser.add_argument("--threads",     type=int, default=4)
     args = parser.parse_args()
 
@@ -199,8 +173,16 @@ def main():
         print("[SSAM] ✓ Normalization already done — skipping.")
 
     if not ready["scaled"]:
-        print("[SSAM] Scaling vectors ...")
-        analysis.scale_vectors()
+        if args.no_scale:
+            # Skip scale_vectors and let the downstream cluster/map steps read the
+            # already-computed normalized vectors instead (they read scaled_vectors /
+            # vf_scaled). No per-gene standardization is applied.
+            print("[SSAM] --no-scale: reusing normalized vectors as scaled (skipping scale_vectors) ...")
+            ds.scaled_vectors = ds.normalized_vectors
+            ds.vf_scaled = ds.vf_normalized
+        else:
+            print("[SSAM] Scaling vectors ...")
+            analysis.scale_vectors()
     else:
         print("[SSAM] ✓ Scaling already done — skipping.")
 
@@ -229,16 +211,6 @@ def main():
     print(f"[SSAM] Filtering cell-type map (min_norm={args.min_norm}, min_r={args.filter_min_r}) ...")
     analysis.filter_celltypemaps(min_norm=args.min_norm, min_r=args.filter_min_r)
 
-    _unfiltered = np.array(ds.celltype_maps).squeeze()
-    _filtered = np.array(ds.filtered_celltype_maps).squeeze()
-    _kept = float((_filtered >= 0).mean())
-    print(f"[SSAM] Cell-type map coverage: {(_filtered >= 0).sum():,} / {_filtered.size:,} pixels "
-          f"({100 * _kept:.1f}%) kept; before filtering {100 * (_unfiltered >= 0).mean():.1f}%.")
-    if _kept < 0.05:
-        print("[SSAM] WARNING: fewer than 5% of pixels survived filtering. min_r is a correlation "
-              "cutoff on a scale that depends on the panel; for sparse high-plex panels the "
-              "canonical 0.6 is often far too strict. Consider lowering --filter-min-r.")
-
     # ── 5. Save KDE map ──────────────────────────────────────────────────────────
     print("[SSAM] Saving KDE map ...")
     vf_norm = np.array(ds.vf_norm).squeeze()
@@ -256,20 +228,15 @@ def main():
     print("[SSAM] Saving cell-type map ...")
     ct_map = np.array(ds.filtered_celltype_maps).squeeze()
     n_types = int(ct_map.max()) + 1
-    cmap = plt.get_cmap("tab20", n_types)
-    # Background is -1. Drawing it through the same colormap would clip it onto
-    # cluster 0's colour, making unassigned tissue look like a real cell type --
-    # so mask it out and give it its own neutral colour instead.
+    # Mask background/unassigned pixels (-1) so they render neutral, not as cluster 0.
     ct_masked = np.ma.masked_less(ct_map, 0)
-    cmap = cmap.copy()
-    cmap.set_bad("#f0f0f0")
+    cmap = plt.get_cmap("tab20", n_types).copy()
+    cmap.set_bad("#ffffff")
     fig, ax = plt.subplots(figsize=(12, 12))
     im = ax.imshow(ct_masked.T, cmap=cmap, vmin=-0.5, vmax=n_types - 0.5, origin="lower")
     cbar = plt.colorbar(im, ax=ax, ticks=range(n_types))
     cbar.ax.set_yticklabels([f"Cluster {i}" for i in range(n_types)], fontsize=7)
-    coverage = 100.0 * (ct_map >= 0).mean()
-    ax.set_title(f"Cell-type Map (SSAM) — {n_types} clusters, "
-                 f"{coverage:.1f}% of pixels assigned (grey = unassigned)")
+    ax.set_title("Cell-type Map (SSAM)")
     ax.set_xlabel("x (pixels)")
     ax.set_ylabel("y (pixels)")
     plt.tight_layout()

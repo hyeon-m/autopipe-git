@@ -21,6 +21,7 @@ rule run_ssam:
         min_norm    = config["min_norm"],
         outlier_min_r = config["outlier_min_r"],
         filter_min_r  = config["filter_min_r"],
+        no_scale_arg  = ("" if config.get("scale_vectors", True) else "--no-scale"),
         # Optional norm-threshold override; empty string -> canonical default.
         norm_arg    = (f"--norm-threshold {config['norm_threshold']}"
                        if str(config.get("norm_threshold", "")).strip() != "" else ""),
@@ -38,6 +39,7 @@ rule run_ssam:
             --min-norm {params.min_norm} \
             --outlier-min-r {params.outlier_min_r} \
             --filter-min-r {params.filter_min_r} \
+            {params.no_scale_arg} \
             --threads {threads} \
             {params.norm_arg} \
             2>&1 | tee {log}
