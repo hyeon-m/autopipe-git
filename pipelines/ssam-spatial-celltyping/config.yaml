@@ -1,24 +1,50 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# SSAM pipeline config — smFISH Allen dataset (CSV mode)
-# Uses pnucolab/ssam API: github.com/pnucolab/ssam
+# SSAM pipeline config — follows the canonical pnucolab/ssam workflow
+# (github.com/pnucolab/ssam, docs/tldr.rst). Defaults match the reference values.
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Spot table CSV path (inside container: /input/...)
-csv: "/input/s3_spot_table.csv"
+csv: "/input/transcripts_ssam.csv"
 
-# KDE bandwidth in micrometers (2.5 µm = ~10 µm FWTM for Gaussian kernel)
+# KDE bandwidth in micrometers (canonical default: 2.5)
 bandwidth: 2.5
 
-# Expression threshold — local maxima with norm below this are discarded
-# Raised from 0.2 → 0.5 to reduce vector count and avoid OOM during clustering
-threshold: 0.5
+# KDE grid spacing in micrometers per pixel (canonical default: 1.0).
+# Increase (e.g. 2.0) for a coarser grid and lower memory on large tissues.
+sampling_distance: 2.0
 
-# Output map width in pixels
-map_width: 1000
+# Norm threshold for local-maxima detection.
+# Leave empty ("") to use SSAM's canonical default, which run_kde derives from
+# bandwidth: norm_threshold = 2 / (sqrt(2*pi) * bandwidth) ** 2  (~0.051 at bw=2.5).
+# Set a number to override it (applied via analysis.set_thresholds).
+norm_threshold: ""
 
-# Leiden clustering resolution (higher → more clusters)
+# find_localmax search neighborhood size in pixels (canonical default: 3)
+search_size: 3
+
+# Leiden clustering resolution (canonical default: 0.6; higher -> more clusters)
 resolution: 0.6
+
+# filter_celltypemaps min_norm — background masking; drops cell-type pixels
+# whose vector-field norm is below this (canonical default: 0.05)
+min_norm: 0.05
+
+# cluster_vectors outlier removal (MedoidCorrelation min_r): a local-maximum
+# vector is kept for centroid calculation only if its correlation to the cluster
+# medoid is at least this value. ssam's own default is 0.8, which suits smFISH
+# panels; on this 541-gene Xenium panel the correlation-to-medoid distribution is
+# centred at ~0.18, so 0.8 discards 3775 of 3786 vectors and leaves 0 clusters.
+# 0.3 keeps the filter meaningful while retaining all 11 Leiden clusters.
+# Set a negative value to disable outlier removal entirely.
+outlier_min_r: 0.3
+
+# filter_celltypemaps min_r: a pixel keeps its cell-type call only if its
+# correlation to the assigned centroid exceeds this. ssam's default is 0.6.
+# Measured on this run, the pixel-to-centroid correlations are centred at 0.220
+# (p95 = 0.521, max = 0.888), so 0.6 keeps only 2.2% of the tissue while the KDE
+# map shows signal across the whole field. 0.3 keeps ~30% of pixels and all 11
+# clusters. min_norm is not the binding constraint here (vf_norm p1 = 0.166).
+filter_min_r: 0.3
 
 # Number of CPU threads
 threads: 4
-

@@ -34,3 +34,13 @@ WORKDIR /pipeline
 COPY Snakefile .
 COPY config.yaml .
 COPY scripts/ scripts/
+
+# Step 5: The container runs as a non-root user, so snakemake cannot create its
+# source cache under the default HOME ("/"). Point HOME/XDG_CACHE_HOME at /tmp
+# and make the working dir writable so snakemake can create .snakemake/ there.
+ENV HOME=/tmp \
+    XDG_CACHE_HOME=/tmp/.cache \
+    MPLCONFIGDIR=/tmp/.config/matplotlib \
+    NUMBA_CACHE_DIR=/tmp/.cache/numba
+RUN mkdir -p /tmp/.cache /tmp/.config/matplotlib /tmp/.cache/numba \
+    && chmod -R a+rwX /pipeline /tmp/.cache /tmp/.config
