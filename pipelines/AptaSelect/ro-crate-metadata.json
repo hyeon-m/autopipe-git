@@ -4,32 +4,123 @@
     {
       "@id": "ro-crate-metadata.json",
       "@type": "CreativeWork",
-      "about": {"@id": "./"},
-      "conformsTo": {"@id": "https://w3id.org/ro/crate/1.1"}
+      "about": {
+        "@id": "./"
+      },
+      "conformsTo": {
+        "@id": "https://w3id.org/ro/crate/1.1"
+      }
     },
     {
       "@id": "./",
-      "@type": ["Dataset", "SoftwareSourceCode", "ComputationalWorkflow"],
-      "name": "AptaSelect",
-      "description": "AptaSelect identifies high-frequency aptamer candidate sequences from paired-end SELEX FASTQ files. Each read (R1 and R2 separately) is filtered in three stages: approximate (edit-distance) matching of both constant regions on either strand, exact-marker flanking extraction, and exact-stem random-region extraction at a user-set length. Identical sequences at every stage are counted and stably ranked by frequency. All library-design sequences, tolerances and lengths are configurable. Baseline single-process, pure-Python implementation.",
-      "version": "1.0.0",
-      "license": {"@id": "https://spdx.org/licenses/MIT"},
-      "programmingLanguage": {"@id": "#snakemake"},
-      "creator": [{"@id": "#author"}],
+      "@type": [
+        "Dataset",
+        "SoftwareSourceCode",
+        "ComputationalWorkflow"
+      ],
+      "creator": [
+        {
+          "@id": "#author"
+        }
+      ],
       "dateCreated": "2026-09-28",
-      "sdPublisher": {"@id": "https://hub.autopipe.org"},
-      "isBasedOn": {"@id": ""},
-      "softwareRequirements": [{"@id": "#aptaselect-script"}],
-      "input": [{"@id": "#input-fastq"}, {"@id": "#input-fastq-gz"}],
-      "output": [{"@id": "#output-ranked-tsv"}, {"@id": "#output-summary-tsv"}],
-      "keywords": ["aptamer", "SELEX", "FASTQ", "sequence enrichment", "random region", "edit distance", "ranking"]
+      "description": "AptaSelect identifies high-frequency aptamer candidate sequences from paired-end SELEX FASTQ files. Each read (R1 and R2 separately) is filtered in three stages: approximate (edit-distance) matching of both constant regions on either strand, exact-marker flanking extraction, and exact-stem random-region extraction at a user-set length. Identical sequences at every stage are counted and stably ranked by frequency. All library-design sequences, tolerances and lengths are configurable. Optimized version: reads are processed by multiple worker processes (core count auto-detected from the process/container allocation, overridable) with results merged in original read order; Stage 1 uses the compiled edlib edit-distance library behind an exact-piece (pigeonhole) prefilter; progress is logged to logs/aptaselect.log. Output files are byte-for-byte identical to version 1.0.0.",
+      "input": [
+        {
+          "@id": "#input-fastq"
+        },
+        {
+          "@id": "#input-fastq-gz"
+        }
+      ],
+      "isBasedOn": {
+        "@id": ""
+      },
+      "keywords": [
+        "aptamer",
+        "SELEX",
+        "FASTQ",
+        "sequence enrichment",
+        "random region",
+        "edit distance",
+        "ranking",
+        "multiprocessing",
+        "edlib"
+      ],
+      "license": {
+        "@id": "https://spdx.org/licenses/MIT"
+      },
+      "name": "AptaSelect",
+      "output": [
+        {
+          "@id": "#output-ranked-tsv"
+        },
+        {
+          "@id": "#output-summary-tsv"
+        }
+      ],
+      "programmingLanguage": {
+        "@id": "#snakemake"
+      },
+      "sdPublisher": {
+        "@id": "https://hub.autopipe.org"
+      },
+      "softwareRequirements": [
+        {
+          "@id": "#aptaselect-script"
+        },
+        {
+          "@id": "#edlib"
+        }
+      ],
+      "version": "1.0.1"
     },
-    {"@id": "#author", "@type": "Person", "name": "khyeonm"},
-    {"@id": "#snakemake", "@type": "ComputerLanguage", "name": "Snakemake", "url": "https://snakemake.readthedocs.io"},
-    {"@id": "#aptaselect-script", "@type": "SoftwareApplication", "name": "aptaselect.py (bundled)"},
-    {"@id": "#input-fastq", "@type": "FormalParameter", "name": "fastq", "encodingFormat": "application/x-fastq"},
-    {"@id": "#input-fastq-gz", "@type": "FormalParameter", "name": "fastq.gz", "encodingFormat": "application/gzip"},
-    {"@id": "#output-ranked-tsv", "@type": "FormalParameter", "name": "stage ranked tables (sequence, count)", "encodingFormat": "text/tab-separated-values"},
-    {"@id": "#output-summary-tsv", "@type": "FormalParameter", "name": "survival_summary.tsv", "encodingFormat": "text/tab-separated-values"}
-  ]
+    {
+      "@id": "#author",
+      "@type": "Person",
+      "name": "khyeonm"
+    },
+    {
+      "@id": "#snakemake",
+      "@type": "ComputerLanguage",
+      "name": "Snakemake",
+      "url": "https://snakemake.readthedocs.io"
+    },
+    {
+      "@id": "#aptaselect-script",
+      "@type": "SoftwareApplication",
+      "name": "aptaselect.py (bundled)"
+    },
+    {
+      "@id": "#edlib",
+      "@type": "SoftwareApplication",
+      "name": "edlib",
+      "url": "https://github.com/Martinsos/edlib"
+    },
+    {
+      "@id": "#input-fastq",
+      "@type": "FormalParameter",
+      "encodingFormat": "application/x-fastq",
+      "name": "fastq"
+    },
+    {
+      "@id": "#input-fastq-gz",
+      "@type": "FormalParameter",
+      "encodingFormat": "application/gzip",
+      "name": "fastq.gz"
+    },
+    {
+      "@id": "#output-ranked-tsv",
+      "@type": "FormalParameter",
+      "encodingFormat": "text/tab-separated-values",
+      "name": "stage ranked tables (sequence, count)"
+    },
+    {
+      "@id": "#output-summary-tsv",
+      "@type": "FormalParameter",
+      "encodingFormat": "text/tab-separated-values",
+      "name": "survival_summary.tsv"
+    }
+  ],
+  "version": "1.0.1"
 }
